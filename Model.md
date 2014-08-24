@@ -1,0 +1,132 @@
+# Predicting Exercise Pattern
+
+##Executive summary
+The goal is to train a model for exercise pattern  based on the metrics collected on different wearable devices like jawbone, fitbit and accelerometers tied to their body. 
+
+
+```r
+setwd("C:/Users/Karthikeyan/Desktop/R/fitbit")
+library("caret")
+library("randomForest")
+raw=read.csv("pml-training.csv")
+```
+## Cleaning Data
+The data had 160 features. By examining with str, I could see that there are lot of features with NA values. So I removed the column with more than 90% of NA. This resulted in 93 features.
+
+
+```r
+raw_no_na <- raw[,colSums(is.na(raw))<1000]
+```
+
+Columns like X, user_name, time-stamp columns and columns with no real values were removed. This left with 79 features. I faced trouble with factor variables and out of memory with the data obtained so far and hence decided to clean further.
+
+
+```r
+removecol= c("X","user_name","raw_timestamp_part_1","raw_timestamp_part_2","cvtd_timestamp","kurtosis_yaw_belt","skewness_yaw_belt","amplitude_yaw_belt","kurtosis_yaw_dumbbell","skewness_yaw_dumbbell","amplitude_yaw_dumbbell","kurtosis_yaw_forearm","skewness_yaw_forearm","amplitude_yaw_forearm")
+
+clean_data= raw_no_na[, !(colnames(raw_no_na) %in% removecol)]
+```
+
+The factor variables are then converted into character then to numeric. It is also found that most of the factor variables had empty values. So they are also filtered.
+
+Let cols be list of factor columns
+
+
+```r
+cols=c("new_window","kurtosis_roll_belt","kurtosis_picth_belt","skewness_roll_belt","skewness_roll_belt.1","max_yaw_belt","min_yaw_belt","kurtosis_roll_dumbbell","kurtosis_picth_dumbbell","skewness_roll_dumbbell","skewness_pitch_dumbbell","max_yaw_dumbbell","min_yaw_dumbbell","kurtosis_roll_forearm","kurtosis_picth_forearm","skewness_roll_forearm","skewness_pitch_forearm","max_yaw_forearm","min_yaw_forearm","kurtosis_roll_arm","kurtosis_picth_arm","kurtosis_yaw_arm","skewness_roll_arm","skewness_pitch_arm","skewness_yaw_arm")
+
+clean_data[cols] <- lapply(clean_data[cols], as.character)
+clean_data[cols] <- lapply(clean_data[cols], as.numeric)
+```
+
+```
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+## Warning: NAs introduced by coercion
+```
+
+```r
+clean_data$classe = as.numeric(clean_data$classe)
+clean_data <- clean_data[,colSums(is.na(clean_data))<1000]
+```
+
+Now we are left with 54 features.
+
+
+## Exploratory Analysis
+Created paired (fig-1) plots for classe and few parameters but could not see any pattern or correlation.
+
+pairs(~roll_belt+total_accel_belt+yaw_arm+total_accel_dumbbell+total_accel_forearm+classe, data=clean_data)
+
+
+![Pairs plot fig-1](figure/Explore.jpeg) 
+
+##Model Fitting
+I decided to try out with random forest as it is a classification problem. Training and Test sets are created in the ratio 70:30.
+
+
+```r
+partition=createDataPartition(y=clean_data$classe, p=0.7,list=F)
+train=clean_data[partition,]
+test=clean_data[-partition,]
+mrf = randomForest(classe~.,data=train, na.action=na.omit)
+```
+
+```
+## Warning: The response has five or fewer unique values.  Are you sure you
+## want to do regression?
+```
+
+##Model Analysis
+Result is:
+	Number of trees: 500
+	No. of variables tried at each split: 17
+	Mean of squared residuals: 0.01606878
+	% Var explained: 99.26
+
+The plot of the model shows great decrease in error as the number of trees grow.
+
+![Pairs plot fig-1](figure/Error_Versus_Tree.jpeg)	
+
+
+```r
+	plot(mrf)
+```
+
+![plot of chunk Plot Model](figure/Plot Model.png) 
+	
+The Testing set was predicted with accuracy of 98.8955% and hence the model has been finalized.
+
+
+```r
+	pred = round(predict(mrf, test))
+	accuracy = sum(pred==test$classe)/nrow(test)*100
+	accuracy
+```
+
+```
+## [1] 98.98
+```
+
